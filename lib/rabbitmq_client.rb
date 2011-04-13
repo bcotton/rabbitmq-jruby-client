@@ -193,7 +193,6 @@ class RabbitMQClient
     # RabbitMQClient::MessageProperties::TEXT_PLAIN
     # RabbitMQClient::MessageProperties::PERSISTENT_TEXT_PLAIN
     def publish(message_body, routing_key, props=RabbitMQClient::MessageProperties::TEXT_PLAIN)
-      auto_bind
       message_body_byte = @marshaller.nil? ? message_body : @marshaller.send(:dump, message_body)
       unless message_body_byte.respond_to? :java_object and message_body_byte.java_object.class == Java::JavaArray
         raise RabbitMQClientError, "message not converted to java bytes for publishing"
