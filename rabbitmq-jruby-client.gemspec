@@ -10,7 +10,7 @@ spec = Gem::Specification.new do |s|
   s.description = s.summary
   s.homepage = 'http://www.linkedin.com/in/jerryluk'
   s.require_path = 'lib'
-  s.files = ["README", "MIT-LICENSE", "LICENSE", "LICENSE-APACHE2", "LICENSE-GPL2", "LICENSE-MPL-RabbitMQ",
+  s.files = ["README", "MIT-LICENSE", "lib/LICENSE", "lib/LICENSE-APACHE2", "lib/LICENSE-GPL2", "lib/LICENSE-MPL-RabbitMQ",
               "lib/commons-cli-1.1.jar", "lib/commons-io-1.2.jar", "lib/rabbitmq-client.jar", 
               "lib/rabbitmq_client.rb", "spec/rabbitmq_client_spec.rb"]
   s.test_files = ["spec/rabbitmq_client_spec.rb"]
