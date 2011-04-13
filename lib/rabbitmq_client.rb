@@ -89,30 +89,11 @@ class RabbitMQClient
     def unbind
       @channel.queue_unbind(@name, @exchange.name, @routing_key) if @exchange
     end
-    
-    # Set props for different type of message. Currently they are:
-    # RabbitMQClient::MessageProperties::MINIMAL_BASIC
-    # RabbitMQClient::MessageProperties::MINIMAL_PERSISTENT_BASIC
-    # RabbitMQClient::MessageProperties::BASIC
-    # RabbitMQClient::MessageProperties::PERSISTENT_BASIC
-    # RabbitMQClient::MessageProperties::TEXT_PLAIN
-    # RabbitMQClient::MessageProperties::PERSISTENT_TEXT_PLAIN
+
     def publish(message_body, props=RabbitMQClient::MessageProperties::TEXT_PLAIN)
-      auto_bind
-      message_body_byte = @marshaller.nil? ? message_body : @marshaller.send(:dump, message_body)
-      unless message_body_byte.respond_to? :java_object and message_body_byte.java_object.class == Java::JavaArray
-        raise RabbitMQClientError, "message not converted to java bytes for publishing"
-      end
-      if props.kind_of? Hash
-        properties = Java::ComRabbitmqClient::AMQP::BasicProperties.new()
-        props.each {|k,v| properties.send(:"#{k.to_s}=", v) }
-      else
-        properties = props
-      end
-      @channel.basic_publish(@exchange.name, @routing_key, properties, message_body_byte)
-      message_body
+      @exchange.publish(message_body, props)
     end
-    
+
     def persistent_publish(message_body, props=MessageProperties::PERSISTENT_TEXT_PLAIN)
       raise RabbitMQClientError, "can only publish persistent message to durable queue" unless @durable
       publish(message_body, props)
@@ -182,7 +163,7 @@ class RabbitMQClient
     protected
     def auto_bind
       unless @exchange
-        exchange = Exchange.new("#{@name}_exchange", 'fanout', @channel, @durable)
+        exchange = Exchange.new("#{@name}_exchange", 'fanout', @channel, @marshaller, @durable)
         self.bind(exchange)
       end
     end
@@ -191,18 +172,42 @@ class RabbitMQClient
   class Exchange
     attr_reader :name
     attr_reader :durable
-    
-    def initialize(name, type, channel, durable=false)
+
+    def initialize(name, type, channel, marshaller, durable=false)
       @name = name
       @type = type
       @durable = durable
       @channel = channel
+      @marshaller = marshaller
       auto_delete = false
       # Declare a non-passive, auto-delete exchange
       @channel.exchange_declare(@name, type.to_s, durable, auto_delete, nil)
       self
     end
-    
+
+    # Set props for different type of message. Currently they are:
+    # RabbitMQClient::MessageProperties::MINIMAL_BASIC
+    # RabbitMQClient::MessageProperties::MINIMAL_PERSISTENT_BASIC
+    # RabbitMQClient::MessageProperties::BASIC
+    # RabbitMQClient::MessageProperties::PERSISTENT_BASIC
+    # RabbitMQClient::MessageProperties::TEXT_PLAIN
+    # RabbitMQClient::MessageProperties::PERSISTENT_TEXT_PLAIN
+    def publish(message_body, routing_key, props=RabbitMQClient::MessageProperties::TEXT_PLAIN)
+      auto_bind
+      message_body_byte = @marshaller.nil? ? message_body : @marshaller.send(:dump, message_body)
+      unless message_body_byte.respond_to? :java_object and message_body_byte.java_object.class == Java::JavaArray
+        raise RabbitMQClientError, "message not converted to java bytes for publishing"
+      end
+      if props.kind_of? Hash
+        properties = Java::ComRabbitmqClient::AMQP::BasicProperties.new()
+        props.each {|k,v| properties.send(:"#{k.to_s}=", v) }
+      else
+        properties = props
+      end
+      @channel.basic_publish(@name, routing_key, properties, message_body_byte)
+      message_body
+    end
+
     def delete
       @channel.exchange_delete(@name)
     end
@@ -289,7 +294,7 @@ class RabbitMQClient
   end
   
   def exchange(name, type='fanout', durable=false)
-    @exchanges[name] ||= Exchange.new(name, type, @channel, durable)
+    @exchanges[name] ||= Exchange.new(name, type, @channel, @marshaller, durable)
   end
 end
 
